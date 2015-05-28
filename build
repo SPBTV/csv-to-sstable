@@ -1,0 +1,2 @@
+mvn install
+mv target/csv-to-sstable-0.0.1-SNAPSHOT-jar-with-dependencies.jar csv-to-sstable.jar
