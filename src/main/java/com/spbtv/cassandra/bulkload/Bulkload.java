@@ -9,11 +9,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 import org.supercsv.io.CsvListReader;
 import org.supercsv.prefs.CsvPreference;
 import org.apache.cassandra.config.Config;
@@ -24,11 +28,11 @@ import org.apache.cassandra.io.sstable.CQLSSTableWriter;
 import com.google.common.base.Joiner;
 
 /**
- * Usage: java bulkload.BulkLoad <path/to/schema.cql> <path/to/input.csv> <path/to/output/dir>"
+ * Usage: java bulkload.BulkLoad <path/to/schema.cql> <path/to/input.csv> <path/to/output/dir> [optional csv prefs json - default is {\"col_sep\":\",\", \"quote_char\":\"'\"} ]"
  */
 public class Bulkload {
 	
-	private static final CsvPreference QUOTE_DELIMITED_CSV_PREF = new CsvPreference.Builder(
+	private static final CsvPreference SINGLE_QUOTED_COMMA_DELIMITED = new CsvPreference.Builder(
 			'\'', ',', "\n").build();
 
 	private static String readFile(String path, Charset encoding)
@@ -53,6 +57,20 @@ public class Bulkload {
 		return cols;
 	}
 	
+	private static Set<String> extractPrimaryColumns(String schema)
+	{
+		Set<String> primary = new HashSet<>();
+		Pattern pattern = Pattern.compile(".*PRIMARY KEY\\s*\\((.+)\\).*");
+		Matcher m = pattern.matcher(schema);
+		if (m.matches()) {
+			for(String col : m.group(1).replace("(", "").replace(")","").split(",")) {
+				primary.add(col.trim());
+			}
+
+		} else throw new RuntimeException("Could not extract primary columns from provided schema.");
+		return primary;
+	}
+	
 	private static String extractTable(String schema, String keyspace) {
 		Pattern columnsPattern = Pattern.compile(".*\\s+"+keyspace+"\\.(\\w+)\\s*\\(.*PRIMARY KEY.*");
 		Matcher m = columnsPattern.matcher(schema);
@@ -62,11 +80,13 @@ public class Bulkload {
 		throw new RuntimeException("Could not extract table name from provided schema.");
 	}
 	
-	private static Object parse(String value, String type) {
+	private static Object parse(String value, String type, boolean columnsIsPrimary) {
 		// We use Java types here based on
 		// http://www.datastax.com/drivers/java/2.0/com/datastax/driver/core/DataType.Name.html#asJavaClass%28%29
 		switch(type) {
 			case "text":
+				if(value == null && columnsIsPrimary)
+					return "";
 				return value;
 			case "float":
 				return Float.parseFloat(value);
@@ -74,10 +94,18 @@ public class Bulkload {
 				throw new RuntimeException("Cannot parse type '" + type + "'.");
 		}
 	}
+	
+	private static CsvPreference parseCsvPrefs(String prefs) throws Exception {
+		JSONParser parser = new JSONParser();
+		JSONObject hash = (JSONObject)parser.parse(prefs);
+		char col_sep = ((String)hash.get("col_sep")).charAt(0);
+		char quote_char = ((String)hash.get("quote_char")).charAt(0);
+		return new CsvPreference.Builder(quote_char, col_sep, "\n").build();
+	}
 
 	public static void main(String[] args) {
 		if (args.length < 4) {
-			System.out.println("usage: java bulkload.BulkLoad <path/to/schema.cql> <path/to/input.csv> <path/to/output/dir>");
+			System.out.println("usage: java bulkload.BulkLoad <path/to/schema.cql> <path/to/input.csv> <path/to/output/dir> [optional csv prefs json - default is {\"col_sep\":\",\", \"quote_char\":\"'\"} ]");
 			return;
 		}
 
@@ -85,7 +113,17 @@ public class Bulkload {
 		String schema_path = args[1];
 		String csv_path = args[2];
 		String output_path = args[3];
-
+		
+		CsvPreference csv_prefs = SINGLE_QUOTED_COMMA_DELIMITED;
+		if (args.length >= 5) {
+			try {
+				csv_prefs = parseCsvPrefs(args[4]);
+			} catch (Exception e) {
+				e.printStackTrace();
+				throw new RuntimeException("Cannot parse provided csv prefs: " + args[4] + ".");
+			}
+		}
+		
 		String schema = null;
 		try {
 			schema = String.format(readFile(schema_path, StandardCharsets.UTF_8), keyspace)
@@ -96,6 +134,7 @@ public class Bulkload {
 		
 		Map<String, String> columns = extractColumns(schema);
 		String table = extractTable(schema, keyspace);
+		Set<String> primaryColumns = extractPrimaryColumns(schema);
 		
 		
 		System.out.println(String.format("Converting CSV to SSTables for table '%s'...", table));
@@ -113,7 +152,7 @@ public class Bulkload {
 
 		try (
 			BufferedReader reader = new BufferedReader(new FileReader(csv_path));
-			CsvListReader csvReader = new CsvListReader(reader,QUOTE_DELIMITED_CSV_PREF)) {
+			CsvListReader csvReader = new CsvListReader(reader,csv_prefs)) {
 			
 			String [] header = csvReader.getHeader(true);
 
@@ -142,7 +181,7 @@ public class Bulkload {
 			while ((line = csvReader.read()) != null) {
 				Map<String, Object> row = new HashMap<>();
 				for(int i = 0; i < header.length; i++) {
-					row.put(header[i], parse(line.get(i), columns.get(header[i])));
+					row.put(header[i], parse(line.get(i), columns.get(header[i]), primaryColumns.contains(header[i])));
 				}
 				writer.addRow(row);
 			}
