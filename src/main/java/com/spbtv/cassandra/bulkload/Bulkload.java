@@ -8,6 +8,8 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -16,8 +18,10 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 import org.supercsv.io.CsvListReader;
 import org.supercsv.prefs.CsvPreference;
 import org.apache.cassandra.config.Config;
@@ -80,16 +84,39 @@ public class Bulkload {
 		throw new RuntimeException("Could not extract table name from provided schema.");
 	}
 	
-	private static Object parse(String value, String type, boolean columnsIsPrimary) {
+	private static Object parse(String value, String type, boolean columnIsPrimary) {
 		// We use Java types here based on
 		// http://www.datastax.com/drivers/java/2.0/com/datastax/driver/core/DataType.Name.html#asJavaClass%28%29
-		switch(type) {
+
+		if(value == null) {
+			if(columnIsPrimary) {
+				if(type.toLowerCase().equals("text")) return "";
+				else throw new RuntimeException("A primary column of type " + type + " was null.");
+			}
+			return null;
+		}
+		
+		switch(type.toLowerCase()) {
 			case "text":
-				if(value == null && columnsIsPrimary)
-					return "";
 				return value;
 			case "float":
 				return Float.parseFloat(value);
+			case "int":
+				return Integer.parseInt(value);
+			case "boolean":
+				return Boolean.parseBoolean(value);
+			case "set<text>":
+				JSONParser parser = new JSONParser();
+				try {
+					JSONArray json_list = (JSONArray)parser.parse(value);
+					Set<String> set = new HashSet<String>();
+					for(int i = 0; i < json_list.size(); i++) {
+						set.add(json_list.get(i).toString());
+					}
+					return set;
+				} catch (ParseException e) {
+					throw new RuntimeException("Cannot parse provided set<text> column. Got " + value + ".");
+				}
 			default:
 				throw new RuntimeException("Cannot parse type '" + type + "'.");
 		}
@@ -159,8 +186,7 @@ public class Bulkload {
 			String insert_stmt = String.format("INSERT INTO %s.%s ("
 					+ Joiner.on(", ").join(header)
 					+ ") VALUES (" + new String(new char[header.length - 1]).replace("\0", "?, ")
-					+ "?)", keyspace,
-					table);
+					+ "?)", keyspace, table);
 			
 			// Prepare SSTable writer
 			CQLSSTableWriter.Builder builder = CQLSSTableWriter.builder();
