@@ -151,8 +151,7 @@ public class Bulkload {
 		
 		String schema = null;
 		try {
-			schema = String.format(readFile(schema_path, StandardCharsets.UTF_8), keyspace)
-						   .replace("\n", " ").replace("\r", " ");
+			schema = readFile(schema_path, StandardCharsets.UTF_8).replace("\n", " ").replace("\r", " ");
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -209,9 +208,9 @@ public class Bulkload {
 				}
 				writer.addRow(row);
 			}
-
-			writer.close();
-
+			
+			writer.close();	
+			
 		} catch (InvalidRequestException | IOException e) {
 			e.printStackTrace();
 		}
