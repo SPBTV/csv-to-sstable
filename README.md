@@ -54,7 +54,7 @@ text   | 'My Little Text'
 float  | '8.97'
 int    | '3'
 boolean | 'True'
-set<text> | '["first", "second", "third"]'
+set&lt;text&gt; | '["first", "second", "third"]'
 
 
 ## Contributing
