@@ -2,7 +2,7 @@
 
 # CSV to Cassandra SSTable
 
-Converts a CSV file into SSTables that can then be bulkloaded into a Cassandra cluster
+Converts a CSV file into SSTables that can be bulkloaded into a Cassandra cluster
 
 ## Installation
 
@@ -12,15 +12,30 @@ Make sure that maven is installed on your system. Then to build the jar file, ru
 
 ## Usage
 
+When running csv-to-sstable.jar, you need to specify the keyspace for which you want to generate the SSTables, the absolute path to a CQL file containing the "TABLE CREATE" definition of the Cassandra table that you want to populate and the absolute path to your CSV file:
+
     $ java -jar csv-to-sstable.jar <keyspace> <absolute/path/to/schema.cql> <absolute/path/to/input.csv> <absolute/path/to/output/dir> [optional csv prefs]
 
 Optionally, you can pass CSV Preferences in JSON format. Omitting this parameter is equivalent to passing the following default preferences:
     
-    $ java -jar csv-to-sstable.jar <keyspace> <path/to/schema.cql> <path/to/input.csv> <path/to/output/dir> "{\"col_sep\":\",\", \"quote_char\":\"'\"}"
+    $ java -jar csv-to-sstable.jar <keyspace> <absolute/path/to/schema.cql> <absolute/path/to/input.csv> <absolute/path/to/output/dir> "{\"col_sep\":\",\", \"quote_char\":\"'\"}"
 
-Note that quotes in your JSON must be escaped (as in the example above) in order to be passed on the command line.
+Note that the quotes in your JSON must be escaped (as in the example above) in order to be passed on the command line.
 
 ## Example
+
+Suppose you would like to populate a Cassandra table `my_table` within a keyspace `my_keyspace`.  The CQL definition of `my_table` is stored in `~/my_table.cql` and might look like this:
+
+```cql
+CREATE TABLE my_keyspace.my_table (
+    my_column1 text,
+    my_column2 int,
+    my_column3 set<text>,
+    PRIMARY KEY (my_column2, my_column1)
+);
+```
+
+Assuming you want to use a CSV file `my_csv.csv` in your home directory to populate your table, you can run:
 
     $ java -jar csv-to-sstable.jar my_keyspace /Users/home/my_table.cql /Users/home/my_csv.csv /Users/home/sstables
 
