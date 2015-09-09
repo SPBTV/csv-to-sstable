@@ -46,13 +46,13 @@ public class Bulkload {
 	private static Map<String, String> extractColumns(String schema) 
 	{
 		Map<String, String> cols = new HashMap<>();
-		Pattern columnsPattern = Pattern.compile(".*\\((.*)PRIMARY KEY.*");
+		Pattern columnsPattern = Pattern.compile(".*?\\((.*?)(?:,\\s*PRIMARY KEY.*)?\\).*");
 		Matcher m = columnsPattern.matcher(schema);
 		if (m.matches()) {
 			for(String col : m.group(1).split(",")) {
-				String [] name_type = col.trim().split("\\s+");
-				if(name_type.length == 2)
-					cols.put(name_type[0], name_type[1]);
+				String [] name_type_prim = col.trim().split("\\s+");
+				if(name_type_prim.length <= 4 && !name_type_prim[0].toUpperCase().equals("PRIMARY"))
+					cols.put(name_type_prim[0], name_type_prim[1]);
 			}
 
 		} else throw new RuntimeException("Could not extract columns from provided schema.");
@@ -62,19 +62,39 @@ public class Bulkload {
 	private static Set<String> extractPrimaryColumns(String schema)
 	{
 		Set<String> primary = new HashSet<>();
-		Pattern pattern = Pattern.compile(".*PRIMARY KEY\\s*\\((.+)\\).*");
+		
+		// Primary key defined on the same line as the corresponding column
+		Pattern pattern = Pattern.compile(".*?(\\w+)\\s+\\w+\\s+PRIMARY KEY.*");
 		Matcher m = pattern.matcher(schema);
 		if (m.matches()) {
-			for(String col : m.group(1).replace("(", "").replace(")","").split(",")) {
+			primary.add(m.group(1));
+			return primary;
+		} 
+		
+		// Multi-columns primary key defined on a separate line 
+		pattern = Pattern.compile(".*PRIMARY KEY\\s*\\(\\s*\\((.*?)\\).*\\).*");
+		m = pattern.matcher(schema);
+		if (m.matches()) {
+			for(String col : m.group(1).split(",")) {
 				primary.add(col.trim());
 			}
-
-		} else throw new RuntimeException("Could not extract primary columns from provided schema.");
-		return primary;
+			return primary;
+		} 
+		
+		// Single-column primary key defined on a separate line 
+		pattern = Pattern.compile(".*PRIMARY KEY\\s*\\(\\s*\\(?\\s*(\\w+)\\s*\\)?,?.*\\).*");
+		m = pattern.matcher(schema);
+		if (m.matches()) {
+			primary.add(m.group(1));
+			return primary;
+		} 
+		
+		
+		throw new RuntimeException("Could not extract primary columns from provided schema.");
 	}
 	
 	private static String extractTable(String schema, String keyspace) {
-		Pattern columnsPattern = Pattern.compile(".*\\s+"+keyspace+"\\.(\\w+)\\s*\\(.*PRIMARY KEY.*");
+		Pattern columnsPattern = Pattern.compile(".*\\s+"+keyspace+"\\.(\\w+)\\s*\\(.*");
 		Matcher m = columnsPattern.matcher(schema);
 		if (m.matches()) {
 			return m.group(1).trim();
@@ -93,7 +113,6 @@ public class Bulkload {
 			}
 			return null;
 		}
-		
 		switch(type.toLowerCase()) {
 			case "text":
 				return value;
@@ -160,7 +179,6 @@ public class Bulkload {
 		String table = extractTable(schema, keyspace);
 		Set<String> primaryColumns = extractPrimaryColumns(schema);
 		
-		
 		System.out.println(String.format("Converting CSV to SSTables for table '%s'...", table));
 
 		// magic!
@@ -184,7 +202,7 @@ public class Bulkload {
 					+ Joiner.on(", ").join(header)
 					+ ") VALUES (" + new String(new char[header.length - 1]).replace("\0", "?, ")
 					+ "?)", keyspace, table);
-			
+
 			// Prepare SSTable writer
 			CQLSSTableWriter.Builder builder = CQLSSTableWriter.builder();
 			// set output directory
@@ -198,7 +216,7 @@ public class Bulkload {
 					// one.
 					.withPartitioner(new Murmur3Partitioner());
 			CQLSSTableWriter writer = builder.build();
-
+			
 			// Write to SSTable while reading data
 			List<String> line;
 			while ((line = csvReader.read()) != null) {
