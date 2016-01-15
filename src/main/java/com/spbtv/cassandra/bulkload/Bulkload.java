@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.Date;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -120,6 +121,8 @@ public class Bulkload {
 				return Float.parseFloat(value);
 			case "int":
 				return Integer.parseInt(value);
+			case "timestamp":
+				return new Date(Long.parseLong(value));
 			case "boolean":
 				return Boolean.parseBoolean(value);
 			case "set<text>":
