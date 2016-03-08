@@ -17,7 +17,7 @@ When running csv-to-sstable.jar, you need to specify the keyspace for which you 
     $ java -jar csv-to-sstable.jar <keyspace> <absolute/path/to/schema.cql> <absolute/path/to/input.csv> <absolute/path/to/output/dir> [optional csv prefs]
 
 Optionally, you can pass CSV Preferences in JSON format. Omitting this parameter is equivalent to passing the following default preferences:
-    
+
     $ java -jar csv-to-sstable.jar <keyspace> <absolute/path/to/schema.cql> <absolute/path/to/input.csv> <absolute/path/to/output/dir> "{\"col_sep\":\",\", \"quote_char\":\"'\"}"
 
 Note that the quotes in your JSON must be escaped (as in the example above) in order to be passed on the command line.
@@ -31,6 +31,7 @@ CREATE TABLE my_keyspace.my_table (
     my_column1 text,
     my_column2 int,
     my_column3 set<text>,
+    my_column4 map<text,text>,
     PRIMARY KEY (my_column2, my_column1)
 );
 ```
@@ -55,6 +56,7 @@ float  | '8.97'
 int    | '3'
 boolean | 'True'
 set&lt;text&gt; | '["first", "second", "third"]'
+map&lt;text,text&gt; | '{"key1": "first", "key2": "second", "key3": "third"}'
 
 
 ## Contributing
