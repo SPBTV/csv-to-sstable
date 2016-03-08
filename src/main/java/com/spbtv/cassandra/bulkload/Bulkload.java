@@ -50,7 +50,6 @@ public class Bulkload {
         Pattern columnsPattern = Pattern.compile(".*?\\((.*?)(?:,\\s*PRIMARY KEY.*)?\\).*");
         Matcher m = columnsPattern.matcher(schema);
         if (m.matches()) {
-            System.out.println("M matches :" + m.toString());
             for (String col : m.group(1).split(", ")) {
                 String[] name_type_prim = col.trim().split("\\s+");
                 if (name_type_prim.length <= 4 && !name_type_prim[0].toUpperCase().equals("PRIMARY")) {
