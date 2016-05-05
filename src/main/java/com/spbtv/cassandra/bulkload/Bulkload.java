@@ -8,6 +8,8 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -16,7 +18,6 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.Date;
-
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -122,7 +123,12 @@ public class Bulkload {
 			case "int":
 				return Integer.parseInt(value);
 			case "timestamp":
-				return new Date(Long.parseLong(value));
+				DateFormat sfmt = new SimpleDateFormat("yyyy-MM-dd HH:mm:ssX");
+				try {
+					return sfmt.parse(value);
+				} catch (java.text.ParseException e) {
+					throw new RuntimeException("Cannot parse provided timestamp column. Got " + value + ".");
+				}
 			case "boolean":
 				return Boolean.parseBoolean(value);
 			case "set<text>":
