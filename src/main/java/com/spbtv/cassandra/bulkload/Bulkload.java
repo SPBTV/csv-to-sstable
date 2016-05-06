@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -120,6 +121,15 @@ public class Bulkload {
 				return Float.parseFloat(value);
 			case "int":
 				return Integer.parseInt(value);
+			case "varint":
+				return new BigInteger(value);
+			case "timestamp":
+				DateFormat sfmt = new SimpleDateFormat("yyyy-MM-dd HH:mm:ssX");
+				try {
+					return sfmt.parse(value);
+				} catch (java.text.ParseException e) {
+					throw new RuntimeException("Cannot parse provided timestamp column. Got " + value + ".");
+				}
 			case "boolean":
 				return Boolean.parseBoolean(value);
 			case "set<text>":
