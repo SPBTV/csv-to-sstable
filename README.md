@@ -31,6 +31,7 @@ CREATE TABLE my_keyspace.my_table (
     my_column1 text,
     my_column2 int,
     my_column3 set<text>,
+    my_column4 map<text,text>,
     PRIMARY KEY (my_column2, my_column1)
 );
 ```
@@ -55,6 +56,7 @@ float  | '8.97'
 int    | '3'
 boolean | 'True'
 set&lt;text&gt; | '["first", "second", "third"]'
+set&lt;text,text&gt; | '["first", "second", "third"]'
 
 
 ## Contributing
